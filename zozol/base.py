@@ -11,7 +11,7 @@ class Asn1Tag(object):
             self.read(data)
 
     @classmethod
-    def from_data(cls, data, decode_fn=None):
+    def from_data(cls, data, decode_fn=None, *args):
         if type(data) is cls:
             return data
 
@@ -111,8 +111,7 @@ class Seq(Asn1Tag):
             if type(desc) is types.FunctionType:
                 desc = desc(self)
 
-            content = desc.from_data(content, decode_fn)
-
+            content = desc.from_data(content, decode_fn, self)
             setattr(self, name, content)
             self.elements.append(name)
 
@@ -151,7 +150,7 @@ class OctStr(Asn1Tag):
         self.value = data
 
     def __repr__(self):
-        return '<OctStr {}>'.format(str.encode(str(self.value), 'hex'))
+        return '<{} {}>'.format(self.__class__.__name__, str.encode(str(self.value), 'hex'))
 
     def __str__(self):
         return str(self.value)

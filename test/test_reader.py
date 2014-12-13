@@ -18,6 +18,14 @@ future releases.  Do not depend on this file or its contents.
     assert msg.content.signerInfos[0].sid.serialNumber.value == 359272175317388400160838857906663248925214184704
 
 
+def test_pkcs7_certtax():
+    data = open(here('signed1.r')).read()
+    msg = ContentInfo.stream(bytearray(data), len(data), decode_ber)
+    x509 = msg.content.certificates[0]
+    assert x509.subject_edrpou == '3225813873'
+    assert x509.subject_drfo == '3225813873'
+
+
 def test_implicit():
     class X(asn1.Seq):
         fields = [
