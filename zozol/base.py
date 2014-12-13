@@ -145,6 +145,7 @@ class OctStr(Asn1Tag):
 class BitStr(OctStr):
     tag = 0x03
 
+
 class Int(Asn1Tag):
     tag = 0x02
     def __init__(self, data=None):
@@ -156,7 +157,7 @@ class Int(Asn1Tag):
         off = 0
         ln = len(data)
         while off < ln:
-            value <= 8
+            value <<= 8
             value |= data[off]
             off += 1
 
