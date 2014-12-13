@@ -7,6 +7,8 @@ tags = {
     0x06: base.ObjId,
     0x03: base.BitStr,
     0x04: base.OctStr,
+    0x0C: base.Utf8Str,
+    0x13: base.PrintStr,
     0x02: base.Int,
     0x11: base.SetOf,
     0x17: base.Time,
@@ -42,10 +44,8 @@ def decode(data, avail, off=0):
 
         ret = None
         if cls == 0:  # u
-            if tag == 0x10:
+            if tag == 0x10 or tag == 0x11:
                 ret = decode(data, tlen, off)
-            elif tag == 0x11:
-                ret = tags[tag](data[off:off+tlen], decode)
             else:
                 ret = tags[tag](data[off:off+tlen])
 

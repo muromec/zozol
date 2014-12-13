@@ -1,5 +1,5 @@
 import os.path
-from zozol import decode_ber
+from zozol import decode_ber, base as asn1, markers as m
 from zozol.schemas.pkcs7_dstszi import ContentInfo
 
 def here(fname):
@@ -16,3 +16,98 @@ future releases.  Do not depend on this file or its contents.
     msg = ContentInfo.stream(bytearray(data), len(data), decode_ber)
     assert str(msg.content.contentInfo.content) == CONTENT
     assert msg.content.signerInfos[0].sid.serialNumber.value == 359272175317388400160838857906663248925214184704
+
+
+def test_implicit():
+    class X(asn1.Seq):
+        fields = [
+            ('b', m.Explicit(tag=0, typ=asn1.OctStr))
+        ]
+
+    data = bytearray(str.decode('3007A0050403313233', 'hex'))
+    x = X.stream(data, len(data), decode_ber)
+    assert str(x.b) == '123'
+
+
+def test_optional():
+    class X(asn1.Seq):
+        fields = [
+            ('a', m.Optional(asn1.Int)),
+            ('b', m.Explicit(tag=0, typ=asn1.OctStr))
+        ]
+
+    data = bytearray(str.decode('3007A0050403313233', 'hex'))
+    x = X.stream(data, len(data), decode_ber)
+    assert str(x.b) == '123'
+    assert not hasattr(x, 'a')
+
+
+def test_optional_last():
+    class A(asn1.Seq):
+        fields = [
+            ('key', asn1.Bool),
+            ('opt', m.Optional(asn1.Bool)),
+        ]
+
+    data = bytearray(str.decode('30030101ff', 'hex'))
+    a = A.stream(data, decode_fn=decode_ber)
+    assert a.key.value is True
+    assert not hasattr(a, 'opt')
+
+
+def test_default():
+    class A(asn1.Seq):
+        fields = [
+            ('key', asn1.Bool),
+            ('opt', m.Default(value='default', typ=asn1.OctStr)),
+        ]
+
+    data = bytearray(str.decode('30030101ff', 'hex'))
+    a = A.stream(data, decode_fn=decode_ber)
+    assert a.key.value is True
+    assert a.opt.value == 'default'
+
+
+def test_seq_int():
+    class B(asn1.Int):
+        pass
+
+    data = bytearray(str.decode('0202FF01', 'hex'))
+    b = B.stream(data, decode_fn=decode_ber)
+    assert b.value == 0xFF01, str(b)
+
+
+def test_explicit():
+    class E(asn1.Seq):
+        fields = [
+            ('name', m.Explicit(tag=2, typ=asn1.OctStr))
+        ]
+
+    data = bytearray(str.decode('3005a203040158', 'hex'))
+    e = E.stream(data, decode_fn=decode_ber)
+    assert str(e.name) == 'X'
+
+
+def test_explicit_raw():
+    data = bytearray(str.decode('a203040158', 'hex'))
+    source = decode_ber(data, len(data))
+    tag, cls, content = source.next()
+    assert tag == 2
+
+    source = decode_ber(content.data, content.tlen, content.off)
+    tag, cls, content = source.next()
+    assert tag == 4
+    assert cls == 'univ', cls
+    assert str(content) == 'X'
+
+
+def test_bool():
+    data = bytearray(str.decode('0101ff', 'hex'))
+    b = asn1.Bool.stream(data, decode_fn=decode_ber)
+    assert b.value is True
+
+
+def test_int():
+    data = bytearray(str.decode('02020080', 'hex'))
+    d = asn1.Int.stream(data, decode_fn=decode_ber)
+    assert d.value == 128

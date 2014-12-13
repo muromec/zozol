@@ -1,5 +1,5 @@
 from .. import base as asn1
-from .. markers import Implicit, Explicit, Optional, Default
+from .. markers import Implicit, Explicit, Optional
 from . rfc3280_x509 import Certificate, DigestAlgorithmIdentifier, Name
 
 

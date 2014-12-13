@@ -5,7 +5,36 @@ from . rewindable import Rewindable
 
 
 class Asn1Tag(object):
-    pass
+
+    def __init__(self, data=None, decode_fn=None):
+        if data:
+            self.read(data)
+
+    @classmethod
+    def from_data(cls, data, decode_fn=None):
+        if type(data) is cls:
+            return data
+
+        if isinstance(data, cls):
+            rt = cls()
+            rt.value = data.value
+            return rt
+
+        return cls(data, decode_fn=decode_fn)
+
+    @classmethod
+    def stream(cls, data, tlen=None, decode_fn=None):
+        if type(data) is not types.GeneratorType:
+            tlen = tlen or len(data)
+            data = decode_fn(data, tlen)
+
+        tag, clsname, content = data.next()
+        if tag != cls.tag:
+            raise ValueError("Schema mismcatch tag {}".format(tag))
+
+        if type(content) is types.GeneratorType:
+            return cls(content, decode_fn)
+        return content
 
 
 class Seq(Asn1Tag):
@@ -21,12 +50,6 @@ class Seq(Asn1Tag):
     def read(self, source, decode_fn):
         self.read_fields(source, decode_fn)
 
-    @classmethod
-    def stream(cls, data, tlen, decode_fn):
-        source = decode_fn(data, tlen)
-        tag, clsname, content = source.next()
-        if tag == 0x10:
-            return cls(content, decode_fn)
 
     def read_fields(self, source, decode_fn):
         fields = self.fields[:]
@@ -54,7 +77,7 @@ class Seq(Asn1Tag):
                 tag, cls, content = source.next()
             except StopIteration:
                 if is_default:
-                    setattr(self, name, fallback)
+                    setattr(self, name, desc(fallback))
                     break
 
                 if is_optional:
@@ -62,7 +85,7 @@ class Seq(Asn1Tag):
 
                 raise ValueError("Incomplete structure")
 
-            if desc.tag != tag:
+            if desc is not Any and desc.tag != tag:
                 if is_optional:
                     source.rewind((tag, cls, content))
                     continue
@@ -79,17 +102,16 @@ class Seq(Asn1Tag):
                 desc = desc.typ
 
             if type(desc) is Implicit:
-                content = decode_fn(content.data, content.tlen, content.off)
                 desc = desc.typ
+                if issubclass(desc, (Seq, SetOf)):
+                    content = decode_fn(content.data, content.tlen, content.off)
+                else:
+                    content = content.data[content.off:content.off+content.tlen]
 
             if type(desc) is types.FunctionType:
                 desc = desc(self)
 
-            if type(content) is SetOf:
-                content = desc(decode_fn(content.data, len(content.data)), decode_fn)
-
-            if type(content) is types.GeneratorType:
-                content = desc(content, decode_fn)
+            content = desc.from_data(content, decode_fn)
 
             setattr(self, name, content)
             self.elements.append(name)
@@ -100,10 +122,6 @@ class Seq(Asn1Tag):
 
 class ObjId(Asn1Tag):
     tag = 0x06
-
-    def __init__(self, data):
-        if data:
-            self.read(data)
 
     def read(self, data):
         current = data[0]
@@ -128,9 +146,6 @@ class ObjId(Asn1Tag):
 
 class OctStr(Asn1Tag):
     tag = 0x04
-    def __init__(self, data=None):
-        if data is not None:
-            self.read(data)
 
     def read(self, data):
         self.value = data
@@ -142,15 +157,21 @@ class OctStr(Asn1Tag):
         return str(self.value)
 
 
+class Utf8Str(OctStr):
+    tag = 0x0C
+    def read(self, data):
+        self.value = unicode(str(data), 'utf8')
+
+
+class PrintStr(OctStr):
+    tag = 0x13
+
 class BitStr(OctStr):
     tag = 0x03
 
 
 class Int(Asn1Tag):
     tag = 0x02
-    def __init__(self, data=None):
-        if data:
-            self.read(data)
 
     def read(self, data):
         value = 0
@@ -170,9 +191,8 @@ class Int(Asn1Tag):
 class Bool(Asn1Tag):
     tag = 0x1
 
-    def __init__(self, data=None):
-        if data is not None:
-            self.value = bool(data[0])
+    def read(self, data):
+        self.value = bool(data[0])
 
 
 class SetOf(Asn1Tag):
@@ -207,11 +227,8 @@ class SeqOf(SetOf, Seq):
     tag = 0x10
 
 
-class Time(object):
+class Time(Asn1Tag):
     tag = 0x17
-    def __init__(self, data):
-        if data is not None:
-            self.read(data)
 
     def read(self, data):
         year = int(data[:2] or "0")
@@ -238,3 +255,6 @@ class Any(object):
     def __init__(self, data, *args):
         self.data = data
 
+    @classmethod
+    def from_data(cls, data, *args):
+        return cls(data)
