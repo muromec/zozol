@@ -4,6 +4,11 @@ from . markers import Optional, Default, Implicit, Explicit
 from . rewindable import Rewindable
 
 
+class Impossible(object):
+    pass
+
+impossible = Impossible()
+
 class Asn1Tag(object):
 
     def __init__(self, data=None, decode_fn=None, value=None):
@@ -130,20 +135,44 @@ class Seq(Asn1Tag):
         while fields:
             name, desc = fields.pop(0)
 
+            is_optional = False
+            is_default = False
+            default_value = impossible
+
             if type(desc) is Optional:
                 desc = desc.typ
                 is_optional = True
 
+            if type(desc) is Default:
+                default_value = desc.value
+                desc = desc.typ
+                is_default = True
+
             try:
                 el = getattr(self, name)
             except AttributeError:
-                if is_optional:
+                if is_optional or is_default:
                     continue
                 raise
 
+            if default_value == el.value:
+                continue
+
             tag = el.tag
             cls = 0
-            yield tag, cls, el.encode()
+            content = el.encode()
+            if type(desc) is Explicit:
+                cls = 2
+                tag = desc.tag | 0x20 # constructed
+                content = (
+                    (el.tag, 0, content),
+                )
+
+            if type(desc) is Implicit:
+                tag = desc.tag
+                cls = 2
+
+            yield tag, cls, content
 
     def __repr__(self):
         return '<Seq {} of {}>'.format(self.__class__.__name__, str.join(', ', self.elements))

@@ -56,3 +56,55 @@ def test_encode_schema():
 
     data = x.to_stream(encode_fn=encode_ber)
     assert str(data) == str.decode('30090403313233020208b3', 'hex')
+
+
+def test_encode_implicit():
+    class X(asn1.Seq):
+        fields = [
+            ('b', m.Implicit(tag=0, typ=asn1.OctStr)),
+            ('c', asn1.Int),
+        ]
+
+    x = X()
+    x.b = asn1.OctStr(value='123')
+    x.c = asn1.Int(value=2227)
+
+    data = x.to_stream(encode_fn=encode_ber)
+    assert str(data) == str.decode('30098003313233020208b3', 'hex')
+
+
+def test_encode_explicit():
+    class X(asn1.Seq):
+        fields = [
+            ('b', m.Explicit(tag=0, typ=asn1.OctStr)),
+            ('c', asn1.Int),
+        ]
+
+    x = X()
+    x.b = asn1.OctStr(value='123')
+    x.c = asn1.Int(value=2227)
+
+    data = x.to_stream(encode_fn=encode_ber)
+    assert str(data) == str.decode('300BA0050403313233020208B3', 'hex')
+
+
+def test_encode_default():
+    class X(asn1.Seq):
+        fields = [
+            ('c', m.Default(value=2, typ=asn1.Int)),
+        ]
+
+    x = X()
+
+    data = x.to_stream(encode_fn=encode_ber)
+    assert str(data) == str.decode('3000', 'hex')
+
+    x.c = asn1.Int(value=2)
+
+    data = x.to_stream(encode_fn=encode_ber)
+    assert str(data) == str.decode('3000', 'hex')
+
+    x.c = asn1.Int(value=3)
+
+    data = x.to_stream(encode_fn=encode_ber)
+    assert str(data) == str.decode('3003020103', 'hex')
