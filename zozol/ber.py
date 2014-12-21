@@ -59,3 +59,35 @@ def decode(data, avail, off=0):
         off += tlen
 
         yield tag, cls_names[cls], ret
+
+
+def encode_tag(tag, cls, content, container):
+    container.append(tag | cls << 6)
+    tlen = len(content)
+    if tlen < 128:
+        container.append(tlen)
+    else:
+        len_bytes = []
+        while tlen:
+            len_bytes.append(tlen & 0xFF)
+            tlen >>= 8
+
+        container.append(0x80 | len(len_bytes))
+        while len_bytes:
+            container.append(len_bytes.pop())
+
+    for byte in content:
+        container.append(byte)
+
+    return container
+
+
+def encode(inp):
+    ret = bytearray()
+    for (tag, cls, content) in inp:
+        if tag == 0x30 or tag == 31:
+            content = encode(content)
+
+        encode_tag(tag, cls, content, ret)
+
+    return ret
