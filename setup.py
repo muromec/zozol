@@ -12,10 +12,11 @@ setup(
     include_package_data=True,
     zip_safe=False,
     install_requires=[ ],
-    tests_requires=[
+    tests_require=[
         'gost89',
         'nose',
     ],
+    setup_requires=['nose>=1.0'],
     classifiers=[
         'Programming Language :: Python',
     ]
