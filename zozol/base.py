@@ -10,21 +10,22 @@ class Impossible(object):
 impossible = Impossible()
 
 class Asn1Tag(object):
+    primitive = True
 
     def __init__(self, data=None, decode_fn=None, value=None, tag=None):
         if data:
+            assert not isinstance(data, Asn1Tag)
             self.read(data)
         else:
             self.value = value
 
     @classmethod
     def from_data(cls, data, decode_fn=None, tag=None, **kwargs):
-        if type(data) is cls:
+        if isinstance(data, cls) is cls:
             return data
 
-        if isinstance(data, cls):
-            rt = cls()
-            rt.value = data.value
+        if issubclass(cls, type(data)):
+            rt = cls(value=data.value)
             return rt
 
         return cls(data, decode_fn=decode_fn)
@@ -47,9 +48,35 @@ class Asn1Tag(object):
             return cls(content, decode_fn)
         return content
 
+    def encode_type(self, el, desc):
+        tag = el.tag
+        cls = 0
+        content = el.encode()
+        wrapTag = None
+        if type(desc) is Explicit:
+            wrapTag = desc.tag |  0x20
+            desc = desc.typ
+
+        if type(desc) is Implicit:
+            tag = desc.tag
+            cls = 2
+            desc = desc.typ
+            bconstructed = 0 if desc.primitive else 0x20
+            tag |= bconstructed
+
+        if type(desc) is types.FunctionType:
+            desc = desc(self)
+
+        ret = desc.to_data((tag, cls, content), self)
+        if wrapTag is not None:
+            ret = (wrapTag, 2, (ret,))
+
+        return ret
+
 
 class Seq(Asn1Tag):
     tag = 0x10
+    primitive = False
 
     def __init__(self, source=None, decode_fn=None, tag=None, value=None):
         self.elements = []
@@ -136,6 +163,8 @@ class Seq(Asn1Tag):
 
         while fields:
             name, desc = fields.pop(0)
+            if type(desc) is types.FunctionType:
+                desc = desc(self)
 
             is_optional = False
             is_default = False
@@ -160,23 +189,7 @@ class Seq(Asn1Tag):
             if is_default and default_value == el.value:
                 continue
 
-            tag = el.tag
-            cls = 0
-            content = el.encode()
-            if type(desc) is Explicit:
-                cls = 2
-                tag = desc.tag | 0x20 # constructed
-                content = (
-                    (el.tag, 0, content),
-                )
-                desc = desc.typ
-
-            if type(desc) is Implicit:
-                tag = desc.tag
-                cls = 2
-                desc = desc.typ
-
-            yield desc.to_data((tag, cls, content), self)
+            yield self.encode_type(el, desc)
 
     def __repr__(self):
         return '<Seq {} of {}>'.format(self.__class__.__name__, str.join(', ', self.elements))
@@ -231,7 +244,7 @@ class OctStr(Asn1Tag):
     tag = 0x04
 
     def read(self, data):
-        self.value = data
+        self.value = str(data)
 
     def __repr__(self):
         return '<{} {}>'.format(self.__class__.__name__, str.encode(str(self.value), 'hex'))
@@ -250,6 +263,9 @@ class Utf8Str(OctStr):
 
     def encode(self):
         return self.value.encode('utf8')
+
+    def __repr__(self):
+        return '<{} UTF8 {}>'.format(self.__class__.__name__, self.value.encode('utf8'))
 
 
 class PrintStr(OctStr):
@@ -302,6 +318,7 @@ class Bool(Asn1Tag):
 class SetOf(Asn1Tag):
     tag = 0x11
     typ = None
+    primitive = False
     def __init__(self, data, decode_fn, tag=None, value=None):
         self.elements = []
         if data and self.typ:
@@ -334,8 +351,7 @@ class SetOf(Asn1Tag):
     def gen_contents(self):
         desc = self.typ
         for el in self.elements:
-            content = el.encode()
-            yield desc.to_data((el.tag, 0, content), self)
+            yield self.encode_type(el, desc)
 
 
 class SeqOf(SetOf, Seq):
@@ -370,11 +386,13 @@ class Time(Asn1Tag):
 
 
 class Any(object):
+    primitive = True
     def __init__(self, data, decode_fn=None, tag=None, *args, **kwargs):
         if type(data) is Rewindable:
             data = data.data[data.off:data.tlen+data.off]
         self.data = data
         self.tag = tag
+        self.primitive = (0x13 & tag) not in [0x10, 0x11]
 
     @classmethod
     def from_data(cls, data, *args, **kwargs):

@@ -9,7 +9,7 @@ class ContentInfo(asn1.Seq):
 
     fields = [
         ('contentType', asn1.ObjId),
-        ('content', Explicit(tag=0, typ=resolve_content)),
+        ('content', Optional(Explicit(tag=0, typ=resolve_content))),
     ]
 
 

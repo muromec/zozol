@@ -128,3 +128,16 @@ def test_encode_x509():
     x509 = msg.content.certificates[0]
     x509_data = x509.to_stream(encode_fn=encode_ber)
     assert x509_data == cx509_data
+
+
+def test_detach():
+    data = open(here('signed1.r')).read()
+    msg = ContentInfo.stream(bytearray(data), decode_fn=decode_ber)
+    recode = msg.to_stream(encode_fn=encode_ber)
+    assert data == str(recode)
+
+    del msg.content.contentInfo.content
+    detached_sign_data = msg.to_stream(encode_fn=encode_ber)
+    assert detached_sign_data[55] == 0xA0, repr(detached_sign_data[55:60])
+    msg = ContentInfo.stream(detached_sign_data, decode_fn=decode_ber)
+    assert not hasattr(msg.content.contentInfo, 'content')
