@@ -21,6 +21,7 @@ class Name(RDNSequence):
 class DigestAlgorithmIdentifier(asn1.Seq):
     fields = [
         ('algorithm', asn1.ObjId),
+        ('parameters', Optional(asn1.Any)),
     ]
 
 
@@ -75,10 +76,18 @@ class ExtnValue(asn1.OctStr):
     def from_data(cls, data, decode_fn, parent, **kwargs):
         desc = cls.TYPES.get(str(parent.extnID))
         if desc is None:
-            return cls(data, decode_fn)
+            return asn1.OctStr.from_data(data, decode_fn)
 
         data = bytearray(data.value)
         return desc.stream(data, decode_fn=decode_fn)
+
+    @classmethod
+    def to_data(cls, data, parent):
+        desc = cls.TYPES.get(str(parent.extnID))
+        if desc is None:
+            return data
+
+        return (cls.tag, 0, (data,))
 
 
 class Extension(asn1.Seq):

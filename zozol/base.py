@@ -30,6 +30,10 @@ class Asn1Tag(object):
         return cls(data, decode_fn=decode_fn)
 
     @classmethod
+    def to_data(cls, data, parent):
+        return data
+
+    @classmethod
     def stream(cls, data, tlen=None, decode_fn=None):
         if type(data) is not Rewindable:
             tlen = tlen or len(data)
@@ -81,7 +85,7 @@ class Seq(Asn1Tag):
                 tag, cls, content = source.next()
             except StopIteration:
                 if is_default:
-                    setattr(self, name, desc(fallback))
+                    setattr(self, name, desc(value=fallback))
                     break
 
                 if is_optional:
@@ -95,7 +99,7 @@ class Seq(Asn1Tag):
                     continue
                 elif is_default:
                     source.rewind((tag, cls, content))
-                    setattr(self, name, fallback)
+                    setattr(self, name, desc(value=fallback))
                     continue
                 else:
                     raise ValueError("Input doesnt match schema at {} {} {}".format(name, hex(desc.tag), hex(tag)))
@@ -165,12 +169,14 @@ class Seq(Asn1Tag):
                 content = (
                     (el.tag, 0, content),
                 )
+                desc = desc.typ
 
             if type(desc) is Implicit:
                 tag = desc.tag
                 cls = 2
+                desc = desc.typ
 
-            yield tag, cls, content
+            yield desc.to_data((tag, cls, content), self)
 
     def __repr__(self):
         return '<Seq {} of {}>'.format(self.__class__.__name__, str.join(', ', self.elements))
@@ -242,6 +248,9 @@ class Utf8Str(OctStr):
     def read(self, data):
         self.value = unicode(str(data), 'utf8')
 
+    def encode(self):
+        return self.value.encode('utf8')
+
 
 class PrintStr(OctStr):
     tag = 0x13
@@ -285,6 +294,10 @@ class Bool(Asn1Tag):
     def read(self, data):
         self.value = bool(data[0])
 
+    def encode(self):
+        ret = 0xFF if self.value else 00
+        return bytearray([ret])
+
 
 class SetOf(Asn1Tag):
     tag = 0x11
@@ -298,7 +311,7 @@ class SetOf(Asn1Tag):
 
     def read(self, source, decode_fn):
         for tag, cls, content in source:
-            content = self.typ(content, decode_fn, tag=tag)
+            content = self.typ.from_data(content, decode_fn, tag=tag, parent=self)
             self.elements.append(content)
 
     def __repr__(self):
@@ -319,8 +332,10 @@ class SetOf(Asn1Tag):
         return  self.gen_contents()
 
     def gen_contents(self):
+        desc = self.typ
         for el in self.elements:
-            yield el.tag, 0, el.encode()
+            content = el.encode()
+            yield desc.to_data((el.tag, 0, content), self)
 
 
 class SeqOf(SetOf, Seq):
@@ -364,6 +379,10 @@ class Any(object):
     @classmethod
     def from_data(cls, data, *args, **kwargs):
         return cls(data, *args, **kwargs)
+
+    @classmethod
+    def to_data(cls, data, parent):
+        return data
 
     def encode(self):
         if hasattr(self.data, 'encode'):

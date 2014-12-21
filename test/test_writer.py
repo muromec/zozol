@@ -118,3 +118,13 @@ def test_encode_attrs():
     attr_data = attrs.to_stream(encode_fn=encode_ber)
     cattr_data[0] = 0x31
     assert attr_data == cattr_data
+
+
+def test_encode_x509():
+    data = open(here('signed1.r')).read()
+    cx509_data = bytearray(open(here('signed1.x509')).read())
+
+    msg = ContentInfo.stream(bytearray(data), decode_fn=decode_ber)
+    x509 = msg.content.certificates[0]
+    x509_data = x509.to_stream(encode_fn=encode_ber)
+    assert x509_data == cx509_data
