@@ -1,6 +1,7 @@
 import os.path
 from zozol import decode_ber, base as asn1, markers as m
 from zozol.schemas.pkcs7_dstszi import ContentInfo
+from gost89 import gosthash
 
 def here(fname):
     dirname, _ = os.path.split(__file__)
@@ -119,3 +120,16 @@ def test_int():
     data = bytearray(str.decode('02020080', 'hex'))
     d = asn1.Int.stream(data, decode_fn=decode_ber)
     assert d.value == 128
+
+
+def test_hashsum():
+    data = open(here('signed1.r')).read()
+    msg = ContentInfo.stream(bytearray(data), len(data), decode_ber)
+    attrs = msg.content.signerInfos[0].authenticatedAttributes
+    dgst = str(attrs['1.2.840.113549.1.9.4'][0].data)
+    cdgst = gosthash(str(msg.content.contentInfo.content))
+
+    assert cdgst == dgst
+
+    dgst = str(attrs.messageDigest)
+    assert cdgst == dgst

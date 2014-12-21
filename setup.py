@@ -11,8 +11,10 @@ setup(
     packages=["zozol"],
     include_package_data=True,
     zip_safe=False,
-    install_requires=[
-        'pyasn1',
+    install_requires=[ ],
+    tests_requires=[
+        'gost89',
+        'nose',
     ],
     classifiers=[
         'Programming Language :: Python',

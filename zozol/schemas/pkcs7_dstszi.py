@@ -45,6 +45,37 @@ class Attribute(asn1.Seq):
 
 class Attributes(asn1.SetOf):
     typ = Attribute
+    HUMAN_NAME = {
+        "contentType": "1.2.840.113549.1.9.3",
+        "messageDigest": "1.2.840.113549.1.9.4",
+        "signingTime ": "1.2.840.113549.1.9.5",
+    }
+
+    def _build_attr_cache(self):
+        return {
+            str(el.type): el.values
+            for el in self.elements
+        }
+
+
+    def __getitem__(self, idx):
+        try:
+            kv = self._attr_cache
+        except AttributeError:
+            kv = self._build_attr_cache()
+            self._attr_cache = kv
+
+        return kv[idx]
+
+    def __getattr__(self, idx):
+        objid = self.HUMAN_NAME.get(idx)
+        if objid is None:
+            raise AttributeError("No attr {} defined".format(idx))
+
+        try:
+            return self[objid][0].data
+        except KeyError:
+            raise AttributeError("Attribute {} not present".format(objid))
 
 class SignerInfo(asn1.Seq):
     fields = [
