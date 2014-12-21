@@ -108,7 +108,7 @@ def test_explicit_raw():
     source = decode_ber(content.data, content.tlen, content.off)
     tag, cls, content = source.next()
     assert tag == 4
-    assert cls == 'univ', cls
+    assert cls == 0, cls
     assert str(content) == 'X'
 
 

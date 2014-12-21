@@ -72,7 +72,7 @@ class ExtnValue(asn1.OctStr):
     }
 
     @classmethod
-    def from_data(cls, data, decode_fn, parent):
+    def from_data(cls, data, decode_fn, parent, **kwargs):
         desc = cls.TYPES.get(str(parent.extnID))
         if desc is None:
             return cls(data, decode_fn)

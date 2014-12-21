@@ -1,8 +1,8 @@
 import types
 from . import base
 from . import markers
+from . rewindable import Rewindable
 
-cls_names = ['univ', 'app', 'ct', 'priv']
 tags = {
     0x01: base.Bool,
     0x06: base.ObjId,
@@ -14,6 +14,7 @@ tags = {
     0x11: base.SetOf,
     0x17: base.Time,
 }
+
 
 def decode_len(data, off):
     tlen = data[off]
@@ -46,10 +47,9 @@ def decode(data, avail, off=0):
         ret = None
         if cls == 0:  # u
             if tag == 0x10 or tag == 0x11:
-                ret = decode(data, tlen, off)
+                ret = Rewindable(fn=decode, data=data, tlen=tlen, off=off)
             else:
                 ret = tags[tag](data[off:off+tlen])
-
         elif cls == 2:
             ret = markers.Tagged(tag, data, off, tlen)
 
@@ -59,10 +59,10 @@ def decode(data, avail, off=0):
         avail -= tlen + hlen
         off += tlen
 
-        yield tag, cls_names[cls], ret
+        yield tag, cls, ret
 
 
-def encode_tag(tag, cls, content, container):
+def encode_tag(tag, cls, content, container, ident=0):
     container.append(tag | cls << 6)
     tlen = len(content)
     if tlen < 128:
@@ -83,12 +83,14 @@ def encode_tag(tag, cls, content, container):
     return container
 
 
-def encode(inp):
+def encode(inp, ident=0):
     ret = bytearray()
     for (tag, cls, content) in inp:
         if type(content) in [types.GeneratorType, list, tuple]:
-            content = encode(content)
+            content = encode(content, ident=ident+1)
+        if tag == 0x10 or tag == 0x11:
+            tag = tag | 0x20
 
-        encode_tag(tag, cls, content, ret)
+        encode_tag(tag, cls, content, ret, ident=ident+1)
 
     return ret

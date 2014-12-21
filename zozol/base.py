@@ -11,14 +11,14 @@ impossible = Impossible()
 
 class Asn1Tag(object):
 
-    def __init__(self, data=None, decode_fn=None, value=None):
+    def __init__(self, data=None, decode_fn=None, value=None, tag=None):
         if data:
             self.read(data)
         else:
             self.value = value
 
     @classmethod
-    def from_data(cls, data, decode_fn=None, *args):
+    def from_data(cls, data, decode_fn=None, tag=None, **kwargs):
         if type(data) is cls:
             return data
 
@@ -31,7 +31,7 @@ class Asn1Tag(object):
 
     @classmethod
     def stream(cls, data, tlen=None, decode_fn=None):
-        if type(data) is not types.GeneratorType:
+        if type(data) is not Rewindable:
             tlen = tlen or len(data)
             data = decode_fn(data, tlen)
 
@@ -39,7 +39,7 @@ class Asn1Tag(object):
         if tag != cls.tag:
             raise ValueError("Schema mismcatch tag {}".format(tag))
 
-        if type(content) is types.GeneratorType:
+        if type(content) is Rewindable:
             return cls(content, decode_fn)
         return content
 
@@ -47,9 +47,9 @@ class Asn1Tag(object):
 class Seq(Asn1Tag):
     tag = 0x10
 
-    def __init__(self, source=None, decode_fn=None):
+    def __init__(self, source=None, decode_fn=None, tag=None, value=None):
         self.elements = []
-        if type(source) is types.GeneratorType:
+        if type(source) is Rewindable:
             self.read(source, decode_fn)
 
         self.source = source
@@ -59,8 +59,6 @@ class Seq(Asn1Tag):
 
     def read_fields(self, source, decode_fn):
         fields = self.fields[:]
-
-        source = Rewindable(source)
 
         while fields:
             is_optional = False
@@ -117,17 +115,17 @@ class Seq(Asn1Tag):
             if type(desc) is types.FunctionType:
                 desc = desc(self)
 
-            content = desc.from_data(content, decode_fn, self)
+            content = desc.from_data(content, decode_fn, tag=tag, parent=self)
             setattr(self, name, content)
             self.elements.append(name)
 
     def to_stream(self, encode_fn):
-        return encode_fn((self.encode(),))
+        return encode_fn(((
+            self.tag | 0x20, 0, self.gen_contents()
+        ),))
 
     def encode(self, cls=0):
-        return(
-            self.tag | 0x20, cls, self.gen_contents()
-        )
+        return self.gen_contents()
 
     def gen_contents(self):
         fields = self.fields[:]
@@ -155,7 +153,7 @@ class Seq(Asn1Tag):
                     continue
                 raise
 
-            if default_value == el.value:
+            if is_default and default_value == el.value:
                 continue
 
             tag = el.tag
@@ -200,6 +198,27 @@ class ObjId(Asn1Tag):
 
     def __str__(self):
         return str.join('.', map(str,self.value))
+
+    def encode(self):
+        ret = bytearray()
+        numbers = self.value[:]
+        n1, n2 = numbers.pop(0), numbers.pop(0)
+        ret.append((n1 * 40) + n2)
+        while numbers:
+            n = numbers.pop(0)
+            if n == 0:
+                ret.append(n)
+                continue
+
+            off = len(ret)
+            while n:
+                nb = n & 0x7F
+                ret.insert(off, nb | 0x80)
+                n >>= 7
+
+            ret[-1] &= 0x7F
+
+        return ret
 
 
 class OctStr(Asn1Tag):
@@ -270,7 +289,7 @@ class Bool(Asn1Tag):
 class SetOf(Asn1Tag):
     tag = 0x11
     typ = None
-    def __init__(self, data, decode_fn):
+    def __init__(self, data, decode_fn, tag=None, value=None):
         self.elements = []
         if data and self.typ:
             self.read(data, decode_fn)
@@ -279,10 +298,7 @@ class SetOf(Asn1Tag):
 
     def read(self, source, decode_fn):
         for tag, cls, content in source:
-            if isinstance(content, (types.GeneratorType, SetOf)):
-                content = self.typ(content, decode_fn)
-            else:
-                content = self.typ(content)
+            content = self.typ(content, decode_fn, tag=tag)
             self.elements.append(content)
 
     def __repr__(self):
@@ -293,6 +309,18 @@ class SetOf(Asn1Tag):
 
     def __getitem__(self, idx):
         return self.elements[idx]
+
+    def to_stream(self, encode_fn):
+        return encode_fn(((
+            self.tag | 0x20, 0, self.gen_contents()
+        ),))
+
+    def encode(self, cls=0):
+        return  self.gen_contents()
+
+    def gen_contents(self):
+        for el in self.elements:
+            yield el.tag, 0, el.encode()
 
 
 class SeqOf(SetOf, Seq):
@@ -322,11 +350,22 @@ class Time(Asn1Tag):
     def __repr__(self):
         return '<UTCTime {}>'.format(self.value)
 
+    def encode(self):
+        return self.value.strftime('%y%m%d%H%M%SZ')
+
 
 class Any(object):
-    def __init__(self, data, *args):
+    def __init__(self, data, decode_fn=None, tag=None, *args, **kwargs):
+        if type(data) is Rewindable:
+            data = data.data[data.off:data.tlen+data.off]
         self.data = data
+        self.tag = tag
 
     @classmethod
-    def from_data(cls, data, *args):
-        return cls(data)
+    def from_data(cls, data, *args, **kwargs):
+        return cls(data, *args, **kwargs)
+
+    def encode(self):
+        if hasattr(self.data, 'encode'):
+            return self.data.encode()
+        return self.data

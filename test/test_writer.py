@@ -1,11 +1,10 @@
 import os.path
-from zozol import encode_ber, encode_ber_tag, base as asn1, markers as m
+from zozol import decode_ber, encode_ber, encode_ber_tag, base as asn1, markers as m
 from zozol.schemas.pkcs7_dstszi import ContentInfo
 
 def here(fname):
     dirname, _ = os.path.split(__file__)
     return os.path.join(dirname, fname)
-
 
 def test_encode_ocsttr():
     data = encode_ber_tag(0x04, 0, bytearray('123'), bytearray())
@@ -108,3 +107,14 @@ def test_encode_default():
 
     data = x.to_stream(encode_fn=encode_ber)
     assert str(data) == str.decode('3003020103', 'hex')
+
+
+def test_encode_attrs():
+    data = open(here('signed1.r')).read()
+    cattr_data = bytearray(open(here('signed1.attrs')).read())
+
+    msg = ContentInfo.stream(bytearray(data), len(data), decode_ber)
+    attrs = msg.content.signerInfos[0].authenticatedAttributes
+    attr_data = attrs.to_stream(encode_fn=encode_ber)
+    cattr_data[0] = 0x31
+    assert attr_data == cattr_data

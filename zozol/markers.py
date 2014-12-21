@@ -6,6 +6,9 @@ class Tagged(object):
         self.tag = tag
         self.typ = typ
 
+    def encode(self):
+        return self.data[self.off:self.off + self.tlen]
+
 
 class Implicit(Tagged):
     pass
