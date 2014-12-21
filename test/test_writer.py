@@ -42,3 +42,17 @@ def test_encode_seq():
     assert data[8] == 3
     assert str(data[9:12]) == '999'
 
+
+def test_encode_schema():
+    class X(asn1.Seq):
+        fields = [
+            ('b', asn1.OctStr),
+            ('c', asn1.Int),
+        ]
+
+    x = X()
+    x.b = asn1.OctStr(value='123')
+    x.c = asn1.Int(value=2227)
+
+    data = x.to_stream(encode_fn=encode_ber)
+    assert str(data) == str.decode('30090403313233020208b3', 'hex')

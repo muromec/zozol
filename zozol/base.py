@@ -6,9 +6,11 @@ from . rewindable import Rewindable
 
 class Asn1Tag(object):
 
-    def __init__(self, data=None, decode_fn=None):
+    def __init__(self, data=None, decode_fn=None, value=None):
         if data:
             self.read(data)
+        else:
+            self.value = value
 
     @classmethod
     def from_data(cls, data, decode_fn=None, *args):
@@ -49,7 +51,6 @@ class Seq(Asn1Tag):
 
     def read(self, source, decode_fn):
         self.read_fields(source, decode_fn)
-
 
     def read_fields(self, source, decode_fn):
         fields = self.fields[:]
@@ -115,6 +116,35 @@ class Seq(Asn1Tag):
             setattr(self, name, content)
             self.elements.append(name)
 
+    def to_stream(self, encode_fn):
+        return encode_fn((self.encode(),))
+
+    def encode(self, cls=0):
+        return(
+            self.tag | 0x20, cls, self.gen_contents()
+        )
+
+    def gen_contents(self):
+        fields = self.fields[:]
+
+        while fields:
+            name, desc = fields.pop(0)
+
+            if type(desc) is Optional:
+                desc = desc.typ
+                is_optional = True
+
+            try:
+                el = getattr(self, name)
+            except AttributeError:
+                if is_optional:
+                    continue
+                raise
+
+            tag = el.tag
+            cls = 0
+            yield tag, cls, el.encode()
+
     def __repr__(self):
         return '<Seq {} of {}>'.format(self.__class__.__name__, str.join(', ', self.elements))
 
@@ -155,6 +185,9 @@ class OctStr(Asn1Tag):
     def __str__(self):
         return str(self.value)
 
+    def encode(self):
+        return self.value
+
 
 class Utf8Str(OctStr):
     tag = 0x0C
@@ -185,6 +218,17 @@ class Int(Asn1Tag):
 
     def __repr__(self):
         return '<Int {}>'.format(self.value)
+
+    def encode(self):
+        if not self.value:
+            return bytearray([0])
+
+        ret = bytearray()
+        value = self.value
+        while value:
+            ret.insert(0, value & 0xFF)
+            value >>= 8
+        return ret
 
 
 class Bool(Asn1Tag):

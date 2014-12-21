@@ -1,3 +1,4 @@
+import types
 from . import base
 from . import markers
 
@@ -85,7 +86,7 @@ def encode_tag(tag, cls, content, container):
 def encode(inp):
     ret = bytearray()
     for (tag, cls, content) in inp:
-        if tag == 0x30 or tag == 31:
+        if type(content) in [types.GeneratorType, list, tuple]:
             content = encode(content)
 
         encode_tag(tag, cls, content, ret)
