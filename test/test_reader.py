@@ -17,6 +17,8 @@ future releases.  Do not depend on this file or its contents.
     msg = ContentInfo.stream(bytearray(data), len(data), decode_ber)
     assert str(msg.content.contentInfo.content) == CONTENT
     assert msg.content.signerInfos[0].sid.serialNumber.value == 359272175317388400160838857906663248925214184704
+    sign_hex = '909653756d2f0f9702498e0925e2d1a50e8aa617d31680c4459cb441ef8c6b620e86de8e37036ba599c61719729a3b75339216a250839b4ff867e4e13b79630d'
+    assert str(msg.content.signerInfos[0].encryptedDigest) == sign_hex.decode('hex')
 
 
 def test_pkcs7_certtax():

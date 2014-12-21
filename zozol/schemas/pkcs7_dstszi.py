@@ -83,6 +83,9 @@ class SignerInfo(asn1.Seq):
         ('sid', SignerIdentifier),
         ('digestAlgorithm', DigestAlgorithmIdentifier),
         ('authenticatedAttributes', Optional(Implicit(tag=0, typ=Attributes))),
+        ('digestEncryptionAlgorithm', DigestAlgorithmIdentifier),
+        ('encryptedDigest', asn1.OctStr),
+        ('unauthenticatedAttributes', Optional(Implicit(tag=1, typ=Attributes))),
     ]
 
 
