@@ -5,7 +5,7 @@ setup(
     name="zozol",
     version='0.1.4',
     url='https://github.com/muromec/zozol',
-    description='',
+    description='Broken ASN1 for DSTU',
     author='Ilya Petrov',
     author_email='ilya.muromec@gmail.com',
     packages=["zozol"],
