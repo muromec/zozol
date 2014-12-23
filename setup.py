@@ -8,7 +8,7 @@ setup(
     description='Broken ASN1 for DSTU',
     author='Ilya Petrov',
     author_email='ilya.muromec@gmail.com',
-    packages=["zozol"],
+    packages=["zozol", "zozol.schemas"],
     include_package_data=True,
     zip_safe=False,
     install_requires=[ ],
