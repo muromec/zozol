@@ -7,27 +7,27 @@ def here(fname):
     return os.path.join(dirname, fname)
 
 def test_encode_ocsttr():
-    data = encode_ber_tag(0x04, 0, bytearray('123'), bytearray())
-    assert data == '0403313233'.decode('hex')
+    data = encode_ber_tag(0x04, 0, bytearray('123', 'latin1'), bytearray())
+    assert data == b'\x04\x03\x31\x32\x33'
 
 
 def test_encode_ocsttr_long():
-    expect_hex = '0481803333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333'
-    data = encode_ber_tag(0x04, 0, bytearray('3' * 128), bytearray())
-    assert data == expect_hex.decode('hex')
+    expected = bytearray(b'\x04\x81\x8033333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333')
+    data = encode_ber_tag(0x04, 0, bytearray('3' * 128, 'latin1'), bytearray())
+    assert data == expected, (repr(data), repr(expected))
 
 
 def test_encode_ocsttr_long2():
-    expect_hex = '048201013333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333'
-    data = encode_ber_tag(0x04, 0, bytearray('3' * 257), bytearray())
-    assert data == expect_hex.decode('hex')
+    expected = bytearray(b'\x04\x82\x01\x0133333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333333')
+    data = encode_ber_tag(0x04, 0, bytearray('3' * 257, 'latin1'), bytearray())
+    assert data == expected, (repr(data), repr(expected))
 
 
 def test_encode_seq():
     seq = (
         (0x30, 0, (
-            (0x04, 0, '123'),
-            (0, 2, '999'),
+            (0x04, 0, bytearray('123', 'latin1')),
+            (0, 2, bytearray('999', 'latin1')),
         ))
     )
     data = encode_ber((seq,))
@@ -36,10 +36,10 @@ def test_encode_seq():
     assert data[1] == 2 + 2 + 3 + 3
     assert data[2] == 0x04
     assert data[3] == 3
-    assert str(data[4:7]) == '123'
+    assert data[4:7] == bytearray('123', 'latin1')
     assert data[7] == 0x80
     assert data[8] == 3
-    assert str(data[9:12]) == '999'
+    assert data[9:12] == bytearray('999', 'latin1')
 
 
 def test_encode_schema():
@@ -54,7 +54,7 @@ def test_encode_schema():
     x.c = asn1.Int(value=2227)
 
     data = x.to_stream(encode_fn=encode_ber)
-    assert str(data) == str.decode('30090403313233020208b3', 'hex')
+    assert bytes(data) == b'\x30\x09\x04\x03\x31\x32\x33\x02\x02\x08\xb3'
 
 
 def test_encode_implicit():
@@ -69,7 +69,7 @@ def test_encode_implicit():
     x.c = asn1.Int(value=2227)
 
     data = x.to_stream(encode_fn=encode_ber)
-    assert str(data) == str.decode('30098003313233020208b3', 'hex')
+    assert bytes(data) == b'\x30\x09\x80\x03\x31\x32\x33\x02\x02\x08\xb3'
 
 
 def test_encode_explicit():
@@ -84,7 +84,7 @@ def test_encode_explicit():
     x.c = asn1.Int(value=2227)
 
     data = x.to_stream(encode_fn=encode_ber)
-    assert str(data) == str.decode('300BA0050403313233020208B3', 'hex')
+    assert bytes(data) == b'\x30\x0B\xA0\x05\x04\x03\x31\x32\x33\x02\x02\x08\xB3'
 
 
 def test_encode_default():
@@ -96,22 +96,22 @@ def test_encode_default():
     x = X()
 
     data = x.to_stream(encode_fn=encode_ber)
-    assert str(data) == str.decode('3000', 'hex')
+    assert bytes(data) == b'\x30\x00'
 
     x.c = asn1.Int(value=2)
 
     data = x.to_stream(encode_fn=encode_ber)
-    assert str(data) == str.decode('3000', 'hex')
+    assert bytes(data) == b'\x30\x00'
 
     x.c = asn1.Int(value=3)
 
     data = x.to_stream(encode_fn=encode_ber)
-    assert str(data) == str.decode('3003020103', 'hex')
+    assert bytes(data) == b'\x30\x03\x02\x01\x03'
 
 
 def test_encode_attrs():
-    data = open(here('signed1.r')).read()
-    cattr_data = bytearray(open(here('signed1.attrs')).read())
+    data = open(here('signed1.r'), 'rb').read()
+    cattr_data = bytearray(open(here('signed1.attrs'), 'rb').read())
 
     msg = ContentInfo.stream(bytearray(data), len(data), decode_ber)
     attrs = msg.content.signerInfos[0].authenticatedAttributes
@@ -121,8 +121,8 @@ def test_encode_attrs():
 
 
 def test_encode_x509():
-    data = open(here('signed1.r')).read()
-    cx509_data = bytearray(open(here('signed1.x509')).read())
+    data = open(here('signed1.r'), 'rb').read()
+    cx509_data = bytearray(open(here('signed1.x509'), 'rb').read())
 
     msg = ContentInfo.stream(bytearray(data), decode_fn=decode_ber)
     x509 = msg.content.certificates[0]
@@ -131,10 +131,10 @@ def test_encode_x509():
 
 
 def test_detach():
-    data = open(here('signed1.r')).read()
+    data = open(here('signed1.r'), 'rb').read()
     msg = ContentInfo.stream(bytearray(data), decode_fn=decode_ber)
     recode = msg.to_stream(encode_fn=encode_ber)
-    assert data == str(recode)
+    assert data == bytes(recode)
 
     del msg.content.contentInfo.content
     detached_sign_data = msg.to_stream(encode_fn=encode_ber)

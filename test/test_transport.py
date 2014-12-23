@@ -10,15 +10,15 @@ def here(fname):
 
 
 def test_unwrap():
-    data = open(here('signed1')).read()
-    rdata = open(here('signed1.r')).read()
+    data = open(here('signed1'), 'rb').read()
+    rdata = open(here('signed1.r'), 'rb').read()
     document = decode_transport(data)
     assert document.body == rdata
     assert document.label == 'UA1_SIGN'
 
 
 def test_headers():
-    data = open(here('signed2')).read()
+    data = open(here('signed2'), 'rb').read()
     document = decode_transport(data)
     assert document.label == 'UA1_SIGN'
     assert document.headers['SUBJECT'] == u'Квитанція №1 (не прийнято)'

@@ -8,7 +8,7 @@ def here(fname):
 
 
 def test_pem():
-    x509_data = open(here('signed1.x509')).read()
-    p509_data = open(here('signed1.x509.pem')).read()
+    x509_data = open(here('signed1.x509'), 'rb').read()
+    p509_data = open(here('signed1.x509.pem'), 'r').read()
     pem_data = to_pem(x509_data, 'certificate')
     assert pem_data == p509_data

@@ -16,7 +16,7 @@ class Rewindable(object):
             self.back = None
             return out
 
-        return self.source.next()
+        return next(self.source)
 
     def rewind(self, value):
         self.back = value

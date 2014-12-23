@@ -78,7 +78,7 @@ class ExtnValue(asn1.OctStr):
         if desc is None:
             return asn1.OctStr.from_data(data, decode_fn)
 
-        data = bytearray(data.value)
+        data = bytearray(data.value, 'latin1')
         return desc.stream(data, decode_fn=decode_fn)
 
     @classmethod

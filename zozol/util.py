@@ -1,13 +1,20 @@
 from __future__ import print_function
+import sys
 from collections import namedtuple
 import base64
-import StringIO
+try:
+    import StringIO as io
+except ImportError:
+    import io
 import struct
 
 Document = namedtuple('Document', ('label', 'body', 'headers'))
 
-def u(data):
-    return unicode(bytes(data), 'latin')
+if sys.version_info.major == 2:
+    def u(data, cp='latin1'):
+        return unicode(bytes(data), cp)
+else:
+    u = str
 
 
 class LabelError(ValueError):
@@ -15,10 +22,10 @@ class LabelError(ValueError):
 
 
 def to_pem(data, name):
-    ret = StringIO.StringIO()
+    ret = io.StringIO()
     ret.write('-----BEGIN {}-----\n'.format(name.upper()))
     for x in range(0, len(data), 48):
-        ret.write(base64.b64encode(data[x:x+48]))
+        ret.write(u(base64.b64encode(data[x:x+48]), 'latin1'))
         ret.write('\n')
     ret.write('-----END {}-----\n'.format(name.upper()))
     return ret.getvalue()
@@ -30,7 +37,7 @@ def strip_header(data, off):
         off += 1
 
     off += 1
-    label = u(data[section:off])
+    label = u(data[section:off], 'latin1')
     (tlen,) = struct.unpack_from('<I', data, off)
     off += 4
     return label, off, tlen
@@ -38,7 +45,7 @@ def strip_header(data, off):
 
 def decode_hlist(hl, cp):
     return {
-        str(k): unicode(str(v), cp)
+        u(k, 'latin1'): u(bytes(v), cp)
         for k, v in hl
     }
 
@@ -46,13 +53,13 @@ def decode_hlist(hl, cp):
 def decode_headers(data):
     ret = []
     is_win = False
-    for line in data.split('\r\n'):
-        if '=' not in line:
+    for line in data.split(b'\r\n'):
+        if b'=' not in line:
             continue
 
-        k, v = line.split('=', 1)
+        k, v = line.split(b'=', 1)
         ret.append((k, v))
-        if k == 'ENCODING' and v == 'WIN':
+        if k == b'ENCODING' and v == b'WIN':
             is_win = True
 
     return decode_hlist(ret, 'cp1251' if is_win else 'utf-8')
@@ -72,6 +79,6 @@ def decode_transport(data):
     if label[3:] in ('_SIGN\0', '_CRYPT\0'):
         pass
     else:
-        raise LabelError("Unknown label ".format(repr(label)))
+        raise LabelError("Unknown label {}".format(repr(label)))
 
     return Document(label=label[:-1], body=data[off:off+tlen], headers=headers)

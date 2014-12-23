@@ -1,7 +1,9 @@
+from __future__ import print_function
 import datetime
 import types
 from . markers import Optional, Default, Implicit, Explicit
 from . rewindable import Rewindable
+from . util import u
 
 
 class Impossible(object):
@@ -38,7 +40,7 @@ class Asn1Tag(object):
     def stream(cls, data, tlen=None, decode_fn=None):
         if type(data) is not Rewindable:
             tlen = tlen or len(data)
-            data = decode_fn(data, tlen)
+            data = Rewindable(decode_fn(data, tlen))
 
         tag, clsname, content = data.next()
         if tag != cls.tag:
@@ -133,7 +135,7 @@ class Seq(Asn1Tag):
 
             if type(desc) is Explicit:
                 content = decode_fn(content.data, content.tlen, content.off)
-                tag, cls, content = content.next()
+                tag, cls, content = next(content)
                 desc = desc.typ
 
             if type(desc) is Implicit:
@@ -200,7 +202,7 @@ class ObjId(Asn1Tag):
 
     def read(self, data):
         current = data[0]
-        numbers = [current / 40, current % 40]
+        numbers = [int(current / 40), current % 40]
         current = 0
         for n in data[1:]:
             current <<= 7
@@ -244,7 +246,7 @@ class OctStr(Asn1Tag):
     tag = 0x04
 
     def read(self, data):
-        self.value = str(data)
+        self.value = u(data, 'latin1')
 
     def __repr__(self):
         return '<{} {}>'.format(self.__class__.__name__, str.encode(str(self.value), 'hex'))
@@ -253,16 +255,16 @@ class OctStr(Asn1Tag):
         return str(self.value)
 
     def encode(self):
-        return self.value
+        return bytearray(self.value, 'latin1')
 
 
 class Utf8Str(OctStr):
     tag = 0x0C
     def read(self, data):
-        self.value = unicode(str(data), 'utf8')
+        self.value = u(data, 'utf8')
 
     def encode(self):
-        return self.value.encode('utf8')
+        return bytearray(self.value, 'utf-8')
 
     def __repr__(self):
         return '<{} UTF8 {}>'.format(self.__class__.__name__, self.value.encode('utf8'))
@@ -382,7 +384,7 @@ class Time(Asn1Tag):
         return '<UTCTime {}>'.format(self.value)
 
     def encode(self):
-        return self.value.strftime('%y%m%d%H%M%SZ')
+        return bytearray(self.value.strftime('%y%m%d%H%M%SZ'), 'latin1')
 
 
 class Any(object):
