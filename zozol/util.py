@@ -79,6 +79,10 @@ def decode_transport(data):
     if label == 'TRANSPORTABLE\0':
         headers = decode_headers(data[off:off+tlen])
         label, off, tlen = strip_header(data, off + tlen)
+    if label == 'CERTCRYPT\0':
+        headers["CERT_PEM"] = to_pem(data[off:off+tlen], 'CERTIFICATE')
+        label, off, tlen = strip_header(data, off + tlen)
+
     if label[3:] in ('_SIGN\0', '_CRYPT\0'):
         pass
     else:
