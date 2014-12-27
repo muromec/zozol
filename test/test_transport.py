@@ -23,3 +23,9 @@ def test_headers():
     assert document.label == 'UA1_SIGN'
     assert document.headers['SUBJECT'] == u'Квитанція №1 (не прийнято)'
     assert document.body[0] == 0x30, repr(document.body[:100])
+
+
+def test_broken_encoding():
+    data = open(here('signed3'), 'rb').read()
+    document = decode_transport(data)
+    assert document.label == 'UA1_SIGN'

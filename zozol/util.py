@@ -62,7 +62,10 @@ def decode_headers(data):
         if k == b'ENCODING' and v == b'WIN':
             is_win = True
 
-    return decode_hlist(ret, 'cp1251' if is_win else 'utf-8')
+    try:
+        return decode_hlist(ret, 'cp1251' if is_win else 'utf-8')
+    except UnicodeDecodeError:
+        return decode_hlist(ret, 'cp1251')
 
 
 def decode_transport(data):
