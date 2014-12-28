@@ -1,5 +1,5 @@
 from .. import base as asn1
-from .. markers import Implicit, Explicit, Optional
+from .. markers import Implicit, Explicit, Optional, Choice
 from . rfc3280_x509 import Certificate, DigestAlgorithmIdentifier, Name
 
 
@@ -29,8 +29,11 @@ class IssuerAndSerialNumber(asn1.Seq):
 
 
 
-class SignerIdentifier(IssuerAndSerialNumber):
-    pass
+class SignerIdentifier(Choice):
+    types = [
+        IssuerAndSerialNumber,
+        asn1.OctStr
+    ]
 
 
 class AttributeValues(asn1.SetOf):

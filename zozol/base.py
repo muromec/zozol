@@ -22,6 +22,11 @@ class Asn1Tag(object):
             self.value = value
 
     @classmethod
+    def match(cls, tag):
+        if cls.tag == tag:
+            return cls
+
+    @classmethod
     def from_data(cls, data, decode_fn=None, tag=None, **kwargs):
         if isinstance(data, cls) is cls:
             return data
@@ -122,7 +127,8 @@ class Seq(Asn1Tag):
 
                 raise ValueError("Incomplete structure")
 
-            if desc is not Any and desc.tag != tag:
+            match_desc = desc.match(tag)
+            if match_desc is None:
                 if is_optional:
                     source.rewind((tag, cls, content))
                     continue
@@ -131,7 +137,8 @@ class Seq(Asn1Tag):
                     setattr(self, name, desc(value=fallback))
                     continue
                 else:
-                    raise ValueError("Input doesnt match schema at {} {} {}".format(name, hex(desc.tag), hex(tag)))
+                    raise ValueError("Input doesnt match schema at '{}'. Want {}, see tag {}".format(name, desc, hex(tag)))
+            desc = match_desc
 
             if type(desc) is Explicit:
                 content = decode_fn(content.data, content.tlen, content.off)
@@ -408,3 +415,7 @@ class Any(object):
         if hasattr(self.data, 'encode'):
             return self.data.encode()
         return self.data
+
+    @classmethod
+    def match(cls, tag):
+        return cls

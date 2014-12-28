@@ -11,6 +11,5 @@ Alpha quality software. Use with caution
 Known bugs
 ----------
 
-- No CHOICE support
 - Can't parse negative integers (would screw up silently)
 - Can't parse gmtime

@@ -80,6 +80,29 @@ def test_default():
     assert a.opt.value == 'default'
 
 
+def test_choice():
+    class IS(m.Choice):
+        types = [
+            asn1.Int,
+            asn1.OctStr,
+        ]
+
+    class A(asn1.Seq):
+        fields = [
+            ('value', IS),
+        ]
+
+    data = bytearray(b'\x30\x03\x02\x01\xff')
+    a = A.stream(data, decode_fn=decode_ber)
+    assert isinstance(a.value, asn1.Int)
+    assert a.value.value == 255
+
+    data = bytearray(b'\x30\x03\x04\x01\x0d')
+    a = A.stream(data, decode_fn=decode_ber)
+    assert isinstance(a.value, asn1.OctStr)
+    assert a.value.value == '\x0d'
+
+
 def test_seq_int():
     class B(asn1.Int):
         pass

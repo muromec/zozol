@@ -141,3 +141,28 @@ def test_detach():
     assert detached_sign_data[55] == 0xA0, repr(detached_sign_data[55:60])
     msg = ContentInfo.stream(detached_sign_data, decode_fn=decode_ber)
     assert not hasattr(msg.content.contentInfo, 'content')
+
+
+def test_choice():
+    class IS(m.Choice):
+        types = [
+            asn1.Int,
+            asn1.OctStr,
+        ]
+
+    class A(asn1.Seq):
+        fields = [
+            ('value', IS),
+        ]
+
+    a = A()
+    a.value = asn1.Int(value=255)
+    data = a.to_stream(encode_fn=encode_ber)
+    expect_data = bytearray(b'\x30\x03\x02\x01\xff')
+    assert data == expect_data
+
+    a = A.stream(data, decode_fn=decode_ber)
+    a.value = asn1.OctStr(value='\x0d')
+    data = a.to_stream(encode_fn=encode_ber)
+    expect_data = bytearray(b'\x30\x03\x04\x01\x0d')
+    assert data == expect_data
