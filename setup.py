@@ -3,7 +3,7 @@ from setuptools import setup
 
 setup(
     name="zozol",
-    version='0.2.1',
+    version='0.2.2',
     url='https://github.com/muromec/zozol',
     description='Broken ASN1 for DSTU',
     author='Ilya Petrov',
