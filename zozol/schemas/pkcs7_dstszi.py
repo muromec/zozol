@@ -32,7 +32,7 @@ class IssuerAndSerialNumber(asn1.Seq):
 class SignerIdentifier(Choice):
     types = [
         IssuerAndSerialNumber,
-        asn1.OctStr
+        Explicit(tag=0, typ=asn1.OctStr)
     ]
 
 
